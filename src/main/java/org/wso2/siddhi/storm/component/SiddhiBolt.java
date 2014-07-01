@@ -84,14 +84,16 @@ public class SiddhiBolt extends BaseBasicBolt{
         }
 
         for(final String streamId:  exportedStreamIds){
-            log.debug("Adding callback for stream - " +  streamId);
+            log.info("Adding callback for stream - " +  streamId);
 			siddhiManager.addCallback(streamId, new StreamCallback() {
                 @Override
                 public void receive(Event[] events) {
 
                     for (Event event : events) {
                         collector.emit(event.getStreamId(), Arrays.asList(event.getData()));
-                        log.debug("Sending Processed event : " + event.getStreamId() + "=>" + event.toString());
+                        if (log.isDebugEnabled()){
+                            log.debug("Sending Processed event : " + event.getStreamId() + "=>" + event.toString());
+                        }
                     }
                 }
             });
@@ -108,6 +110,7 @@ public class SiddhiBolt extends BaseBasicBolt{
         if(siddhiManager == null){
             initialize();
         }
+
         try {
             this.collector = collector;
             InputHandler inputHandler = siddhiManager.getInputHandler(tuple.getSourceStreamId());

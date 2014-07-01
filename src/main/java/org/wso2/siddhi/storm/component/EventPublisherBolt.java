@@ -61,6 +61,8 @@ public class EventPublisherBolt extends BaseBasicBolt implements ManagerServiceC
      */
     private int cepManagerPort = 9773;
 
+    SiddhiManager siddhiManager;
+
     public EventPublisherBolt(String[] streamDefinitions, String[] queries, String[] exportedStreamIDs){
         this.exportedStreamIDs = exportedStreamIDs;
         this.streamDefinitions = streamDefinitions;
@@ -73,22 +75,27 @@ public class EventPublisherBolt extends BaseBasicBolt implements ManagerServiceC
 
     @Override
     public void execute(Tuple tuple, BasicOutputCollector basicOutputCollector) {
-        if (dataPublisher == null){
+        if (siddhiManager == null){
             init(); // TODO : Understand why this init is required
         }
 
-        org.wso2.carbon.databridge.commons.StreamDefinition databridgeStream = siddhiStreamIdToDataBridgeStream.get(tuple.getSourceStreamId());
-        if (databridgeStream != null){
-            try {
-                if (log.isDebugEnabled()){
-                    log.debug(logPrefix + "Event published to CEP Publisher =>" + tuple.toString());
+        if (dataPublisher != null){
+            org.wso2.carbon.databridge.commons.StreamDefinition databridgeStream = siddhiStreamIdToDataBridgeStream.get(tuple.getSourceStreamId());
+
+            if (databridgeStream != null){
+                try {
+                    if (log.isDebugEnabled()){
+                        log.debug(logPrefix + "Event published to CEP Publisher =>" + tuple.toString());
+                    }
+                    dataPublisher.publish(databridgeStream.getName(), databridgeStream.getVersion(), null, null, tuple.getValues().toArray());
+                } catch (AgentException e) {
+                   log.error(logPrefix + "Error while publishing event to CEP publisher" , e);
                 }
-                dataPublisher.publish(databridgeStream.getName(), databridgeStream.getVersion(), null, null, tuple.getValues().toArray());
-            } catch (AgentException e) {
-               log.error(logPrefix + "Error while publishing event to CEP publisher" , e);
+            }else{
+                log.warn(logPrefix + "Tuple received for unknown stream " + tuple.getSourceStreamId() + ". Discarding event : " + tuple.toString());
             }
         }else{
-            log.warn(logPrefix + "Tuple received for unknown stream " + tuple.getSourceStreamId() + ". Discarding event : " + tuple.toString());
+            log.warn("Dropping the event since the data publisher is not yet initialized for " + executionPlanName + ":" + tenantId);
         }
     }
 
@@ -106,7 +113,7 @@ public class EventPublisherBolt extends BaseBasicBolt implements ManagerServiceC
     private void init(){
         // TODO : remove siddhi related stream definitions. Use only exported streams
         log = Logger.getLogger(EventPublisherBolt.class);
-        SiddhiManager siddhiManager = new SiddhiManager(new SiddhiConfiguration());
+        siddhiManager = new SiddhiManager(new SiddhiConfiguration());
 
         if(streamDefinitions != null){
             for(String definition: streamDefinitions){

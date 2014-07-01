@@ -21,6 +21,9 @@ import org.wso2.siddhi.query.api.definition.StreamDefinition;
 import org.wso2.siddhi.storm.Util.SiddhiUtils;
 import org.wso2.siddhi.storm.communication.ManagerServiceClient;
 
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.net.SocketException;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -29,8 +32,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
- * Receive events from CEP receivers through data bridge and pass through
- * the events as tuples to the connected component.
+ * Receive events from CEP receivers through data bridge thrift receiver and pass through
+ * the events as tuples to the connected component(i.e. Siddhi Bolt).
  */
 public class EventReceiverSpout extends BaseRichSpout implements AgentCallback {
     private static transient Logger log = Logger.getLogger(EventReceiverSpout.class);
@@ -54,9 +57,8 @@ public class EventReceiverSpout extends BaseRichSpout implements AgentCallback {
     /**
      * Store received events until nextTuple is called. This list has to be synchronized since
      * this is filled by the receiver thread of data bridge and consumed by the nextTuple which
-     * runs on the worker thread of spout
+     * runs on the worker thread of spout.
      */
-    // TODO : use disruptor
     private transient ConcurrentLinkedQueue<Event> storedEvents = null;
 
     private transient ThriftDataReceiver thriftDataReceiver = null;
@@ -73,6 +75,9 @@ public class EventReceiverSpout extends BaseRichSpout implements AgentCallback {
 
     private String logPrefix;
 
+    private int minListeningPort = 12000;
+    private int maxListeningPort = 12100;
+
     /**
      * Receives events from the CEP Receiver through Thrift using data bridge and pass through the events
      * to a downstream component as tupels.
@@ -80,7 +85,6 @@ public class EventReceiverSpout extends BaseRichSpout implements AgentCallback {
      * @param incomingStreamDefinitions - Incoming Siddhi stream definitions
      */
     public EventReceiverSpout(int listeningPort, String[] incomingStreamDefinitions){
-        this.listeningPort = listeningPort;
         this.incomingStreamDefinitions = incomingStreamDefinitions;
         logPrefix = "{" + executionPlanName + ":" + tenantId + "}";
         //TODO : Get configs from configuration file
@@ -142,6 +146,7 @@ public class EventReceiverSpout extends BaseRichSpout implements AgentCallback {
 
         databridge.subscribe(this);
         try {
+            selectPort();
             thriftDataReceiver = new ThriftDataReceiver(listeningPort, databridge);
             thisHostIp = HostAddressFinder.findAddress("localhost");
             thriftDataReceiver.start(thisHostIp);
@@ -174,5 +179,35 @@ public class EventReceiverSpout extends BaseRichSpout implements AgentCallback {
                 log.warn(logPrefix + "Event received for unknown stream : " + siddhiStreamName);
             }
          }
+    }
+
+    private void selectPort(){
+        for (int i = minListeningPort; i <= maxListeningPort; i++){
+            if (!isPortUsed(i)){
+                listeningPort = i;
+                break;
+            }
+        }
+    }
+
+    public static boolean isPortUsed(final int portNumber){
+        boolean isPortUsed;
+        Socket socket = null;
+        try {
+            socket = new Socket();
+            socket.bind(new InetSocketAddress("localhost", portNumber));
+            isPortUsed = false;
+        } catch (IOException ignored) {
+            isPortUsed =  true;
+        } finally {
+            if (socket != null){
+                try {
+                    socket.close();
+                } catch (IOException e) {
+                    isPortUsed = true;
+                }
+            }
+        }
+        return isPortUsed;
     }
 }
