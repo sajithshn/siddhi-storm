@@ -121,6 +121,7 @@ public class EventReceiverSpout extends BaseRichSpout implements AgentCallback {
         for (StreamDefinition siddhiStreamDefinition : streamDefinitions){
             Fields fields = new Fields(siddhiStreamDefinition.getAttributeNameArray());
             outputFieldsDeclarer.declareStream(siddhiStreamDefinition.getStreamId(), fields);
+
             incomingStreamIDs.add(siddhiStreamDefinition.getStreamId());
             log.info(logPrefix + "Declaring output fields for stream - " + siddhiStreamDefinition.getStreamId());
         }
@@ -170,6 +171,7 @@ public class EventReceiverSpout extends BaseRichSpout implements AgentCallback {
         Event event = storedEvents.poll();
         if (event != null){
             final String siddhiStreamName = SiddhiUtils.getSiddhiStreamName(event.getStreamId());
+
             if (incomingStreamIDs.contains(siddhiStreamName)){
                 if (log.isDebugEnabled()){
                     log.debug(logPrefix + "Sending event : " + siddhiStreamName + "=>" + event.toString());

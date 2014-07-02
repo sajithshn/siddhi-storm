@@ -52,18 +52,17 @@ public class SiddhiBolt extends BaseBasicBolt{
         this.definitions = definitions;
         this.queries = queries;
         this.exportedStreamIds = exportedSiddhiStreamIds;
-        initialize();
+        init();
     }
 
     /**
      * Bolt get saved and reloaded, this to redo the configurations.
      */
-    private void initialize(){
-        this.siddhiManager = new SiddhiManager(new SiddhiConfiguration());
+    private void init(){
+        siddhiManager = new SiddhiManager(new SiddhiConfiguration());
         log = Logger.getLogger(SiddhiBolt.class);
 
         if(definitions != null){
-
             for(String definition: definitions){
 
                 if(definition.contains("define stream")){
@@ -108,7 +107,7 @@ public class SiddhiBolt extends BaseBasicBolt{
 	@Override
 	public void execute(Tuple tuple, BasicOutputCollector collector) {
         if(siddhiManager == null){
-            initialize();
+            init();
         }
 
         try {
@@ -128,7 +127,7 @@ public class SiddhiBolt extends BaseBasicBolt{
 	@Override
 	public void declareOutputFields(OutputFieldsDeclarer declarer) {
 		if(siddhiManager == null){
-			initialize();
+			init();
 		}
 
         // Declaring output fileds for each exported stream ID
